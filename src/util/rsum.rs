@@ -1,3 +1,5 @@
+use super::copy::arr_copy;
+
 pub struct Rsum {
     a: i16,
     b: i16,
@@ -68,8 +70,10 @@ impl Rsum {
 
         self.block_length = length;
         //self.buffer = vec![0; self.block_length];
-        self.buffer = buf.to_vec();
+        self.buffer = Vec::new();
         self.buffer.resize(self.block_length as usize, 0);
+        arr_copy(&buf.to_vec(), 0, &mut self.buffer, 0, length as usize);
+        //self.buffer.resize(self.block_length as usize, 0);
     }
 
     // pub fn unsigned_byte(b: u8) -> i16 {
