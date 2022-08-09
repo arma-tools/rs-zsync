@@ -62,7 +62,7 @@ impl MetaFile {
 
                         if splitted.len() == 2 {
                             let value = splitted[1].clone();
-                            dbg!(value.clone());
+                            // dbg!(value.clone());
                             match splitted[0].trim().to_lowercase().as_ref() {
                                 "zsync" => self.zsync = value,
                                 "filename" => self.filename = value,
