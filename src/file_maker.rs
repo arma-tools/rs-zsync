@@ -16,6 +16,7 @@ pub struct FilePart {
     pub end_offset: usize,
     pub block_length: usize,
     pub offset: usize,
+    pub file_offset: i64,
 }
 
 pub struct FileMaker {
@@ -61,10 +62,19 @@ impl FileMaker {
                     end_offset: end_offset as usize,
                     block_length: block_length as usize,
                     offset: offset as usize,
+                    file_offset,
                 });
 
                 // dbg!("Range: {} - {}", start_offset, end_offset);
                 // dbg!("Block Length: {} Offset: {}", block_length, offset);
+            } else {
+                res.push(FilePart {
+                    start_offset: 0,
+                    end_offset: 0,
+                    block_length: 0,
+                    offset: 0,
+                    file_offset,
+                });
             }
             // else {
             //     // normal copy
