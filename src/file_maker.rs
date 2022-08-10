@@ -20,7 +20,7 @@ pub struct FilePart {
 }
 
 pub struct FileMaker {
-    metafile: MetaFile,
+    pub metafile: MetaFile,
     hashtable: ChainingHash,
     file_map: Vec<i64>,
     file_offset: i64,
