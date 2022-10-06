@@ -58,6 +58,9 @@ impl ChainingHash {
         let hash_value = self.hash_function(p_key);
 
         let array = &self.hash_array[hash_value as usize];
+        if array.is_empty() {
+            return None;
+        }
         let pair = &array[self.index as usize];
 
         if pair.weak == p_key.weak && pair.strong == p_key.strong {
