@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::Read;
+use std::io::{BufReader, Read};
 use std::path::Path;
 use std::vec;
 
@@ -22,7 +22,7 @@ pub struct FilePart {
 pub struct FileMaker {
     pub metafile: MetaFile,
     hashtable: ChainingHash,
-    file_map: Vec<i64>,
+    pub file_map: Vec<i64>,
     file_offset: i64,
 }
 
@@ -61,7 +61,7 @@ impl FileMaker {
                     start_offset: start_offset as usize,
                     end_offset: end_offset as usize,
                     block_length: block_length as usize,
-                    offset: offset as usize,
+                    offset,
                     file_offset,
                 });
 
@@ -84,7 +84,7 @@ impl FileMaker {
         res
     }
 
-    fn calc_block_length(i: i32, block_size: i32, length: i32) -> i32 {
+    pub fn calc_block_length(i: i32, block_size: i32, length: i32) -> i32 {
         if (i + 1) * block_size < length {
             block_size
         } else {
@@ -136,8 +136,8 @@ impl FileMaker {
 
         let mut gen = Generator::new(config);
 
-        let mut back_buffer = vec![0u8; self.metafile.blocksize as usize];
-        let mut block_buffer = vec![0u8; self.metafile.blocksize as usize];
+        let mut back_buffer = vec![0u8; self.metafile.blocksize];
+        let mut block_buffer = vec![0u8; self.metafile.blocksize];
 
         let mut file_buffer: Vec<u8>;
         if self.metafile.length < mebi_byte && self.metafile.blocksize < self.metafile.length {
@@ -159,11 +159,12 @@ impl FileMaker {
         let mut last_match: i64 = 0;
 
         let mut n: i32;
-        let mut weak_sum = 0;
+        let mut weak_sum;
         let mut strong_sum: Vec<u8>;
         let mut end = false;
 
-        let mut in_buf = File::open(target_file).expect("Unable to open file");
+        let file = File::open(target_file).expect("Unable to open file");
+        let mut in_buf = BufReader::new(file);
 
         while self.file_offset as u64 != file_length {
             file_buffer.resize(len, 0);
@@ -209,25 +210,25 @@ impl FileMaker {
                 if found {
                     if (self.file_offset + self.metafile.blocksize as i64) as u64 > file_length {
                         if n > 0 {
-                            for i in (n as usize)..file_buffer.len() {
+                            ((n as usize)..file_buffer.len()).for_each(|i| {
                                 file_buffer[i] = 0;
-                            }
+                            });
                         } else {
                             let offset = file_buffer.len() - self.metafile.blocksize
                                 + buffer_offset as usize
                                 + 1;
                             arr_copy(
                                 &file_buffer,
-                                offset as usize,
+                                offset,
                                 &mut block_buffer,
                                 0,
-                                file_buffer.len() - offset as usize,
+                                file_buffer.len() - offset,
                             );
 
                             let block_buffer_len = block_buffer.len();
                             arr_fill(
                                 &mut block_buffer,
-                                file_buffer.len() - offset as usize,
+                                file_buffer.len() - offset,
                                 block_buffer_len,
                                 0,
                             )
@@ -253,8 +254,7 @@ impl FileMaker {
                                 buffer_offset as usize + 1,
                             );
                         }
-                        strong_sum =
-                            gen.generate_strong_sum(&mut block_buffer, 0, blocksize as usize);
+                        strong_sum = gen.generate_strong_sum(&mut block_buffer, 0, blocksize);
 
                         let temp_weak_sum = self.update_weak_sum(weak_sum);
                         let match_ = self.hash_look_up(temp_weak_sum, strong_sum);
@@ -330,19 +330,17 @@ impl FileMaker {
         }
 
         if !self.file_map.is_empty() {
-            (((self.file_map.len() - missing) as f64 / self.file_map.len() as f64) * 100.0) as f64
+            ((self.file_map.len() - missing) as f64 / self.file_map.len() as f64) * 100.0
         } else {
             0.0
         }
     }
 
     pub fn update_weak_sum(&mut self, weak: i32) -> i32 {
-        let rsum: Vec<u8>;
-
-        match self.metafile.rsum_bytes {
-            2 => rsum = vec![0, 0, (weak >> 24) as u8, ((weak << 8) >> 24) as u8],
+        let rsum: Vec<u8> = match self.metafile.rsum_bytes {
+            2 => vec![0, 0, (weak >> 24) as u8, ((weak << 8) >> 24) as u8],
             3 => {
-                rsum = vec![
+                vec![
                     ((weak << 8) >> 24) as u8,
                     0,
                     ((weak << 24) >> 24) as u8,
@@ -350,15 +348,15 @@ impl FileMaker {
                 ]
             }
             4 => {
-                rsum = vec![
+                vec![
                     (weak >> 24) as u8,
                     ((weak << 8) >> 24) as u8,
                     ((weak << 16) >> 24) as u8,
                     ((weak << 24) >> 24) as u8,
                 ]
             }
-            _ => rsum = vec![0; 4],
-        }
+            _ => vec![0; 4],
+        };
 
         let mut weak_sum: i32 = 0;
         weak_sum += (rsum[0] as i32 & 0x000000FF) << 24;
